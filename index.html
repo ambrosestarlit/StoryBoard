@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Storyboard">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>Storyboard Editor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="toolbar">
+            <div class="tool-section">
+                <button class="tool-btn active" data-tool="pen" title="ペン">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                        <path d="M2 2l7.586 7.586"></path>
+                    </svg>
+                </button>
+                <button class="tool-btn" data-tool="line" title="直線">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="5" y1="19" x2="19" y2="5"></line>
+                    </svg>
+                </button>
+                <button class="tool-btn" data-tool="eraser" title="消しゴム">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 20H7L3 16l10-10 7 7-4 4"></path>
+                        <path d="M11 11l4 4"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="tool-section">
+                <label class="slider-label">
+                    <span>サイズ</span>
+                    <input type="range" id="brushSize" min="1" max="50" value="3" class="slider">
+                    <span id="brushSizeValue">3</span>
+                </label>
+            </div>
+
+            <div class="tool-section">
+                <button class="action-btn" id="undoBtn" title="元に戻す">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 7v6h6"></path>
+                        <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path>
+                    </svg>
+                </button>
+                <button class="action-btn" id="redoBtn" title="やり直し">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 7v6h-6"></path>
+                        <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="tool-section canvas-size-section">
+                <label class="input-label">
+                    <span>幅</span>
+                    <input type="number" id="canvasWidth" value="1920" min="100" max="4096" step="1">
+                </label>
+                <label class="input-label">
+                    <span>高さ</span>
+                    <input type="number" id="canvasHeight" value="1080" min="100" max="4096" step="1">
+                </label>
+                <button class="action-btn" id="applyCanvasSize" title="キャンバスサイズを適用">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="tool-section project-name-section">
+                <label class="input-label">
+                    <span>プロジェクト名</span>
+                    <input type="text" id="projectName" value="storyboard" placeholder="プロジェクト名">
+                </label>
+            </div>
+
+            <div class="tool-section">
+                <button class="file-btn" id="saveProjectBtn" title="プロジェクトを保存">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    保存
+                </button>
+                <button class="file-btn" id="loadProjectBtn" title="プロジェクトを読み込み">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"></path>
+                    </svg>
+                    読込
+                </button>
+                <input type="file" id="loadProjectInput" accept=".json" style="display: none;">
+            </div>
+
+            <div class="tool-section">
+                <div class="export-dropdown">
+                    <button class="export-btn" id="exportBtn">PNG書き出し</button>
+                    <div class="export-menu" id="exportMenu">
+                        <button class="export-menu-item" data-export="all">全コンテ一括</button>
+                        <button class="export-menu-item" data-export="individual">個別書き出し (ZIP)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="storyboard-panel">
+                <div class="panel-header">
+                    <h3>コンテ</h3>
+                    <button class="add-btn" id="addStoryboardBtn" title="コンテを追加">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div id="storyboardList" class="storyboard-list"></div>
+            </div>
+
+            <div class="layer-panel">
+                <h3>レイヤー</h3>
+                <div id="layerList" class="layer-list"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div id="canvasWrapper" class="canvas-wrapper">
+                    <canvas id="canvas" width="1920" height="1080"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(() => {
+                console.log('Service Worker registered');
+            });
+        }
+    </script>
+</body>
+</html>
