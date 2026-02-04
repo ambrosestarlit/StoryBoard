@@ -13,7 +13,6 @@ class StoryboardEditor {
         
         this.tool = 'pen';
         this.brushSize = 3;
-        this.smoothing = 50; // 補正強度 0-100
         this.isDrawing = false;
         this.points = [];
         this.lineStart = null;
@@ -160,13 +159,6 @@ class StoryboardEditor {
         brushSizeInput.addEventListener('input', (e) => {
             this.brushSize = parseInt(e.target.value);
             brushSizeValue.textContent = this.brushSize;
-        });
-        
-        const smoothingInput = document.getElementById('smoothing');
-        const smoothingValue = document.getElementById('smoothingValue');
-        smoothingInput.addEventListener('input', (e) => {
-            this.smoothing = parseInt(e.target.value);
-            smoothingValue.textContent = this.smoothing;
         });
         
         const projectNameInput = document.getElementById('projectName');
@@ -377,23 +369,9 @@ class StoryboardEditor {
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
         
-        // タッチイベントの場合はtouchesから取得
-        let clientX, clientY;
-        if (e.touches && e.touches.length > 0) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else if (e.changedTouches && e.changedTouches.length > 0) {
-            // touchendの場合
-            clientX = e.changedTouches[0].clientX;
-            clientY = e.changedTouches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-        
         return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY,
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY,
             pressure: e.pressure || 0.5
         };
     }
@@ -416,36 +394,8 @@ class StoryboardEditor {
         const pos = this.getPointerPosition(e);
         
         if (this.tool === 'pen' || this.tool === 'eraser') {
-            // タブレット用：前の点との間を補間して滑らかに
-            if (this.points.length > 0) {
-                const lastPoint = this.points[this.points.length - 1];
-                const distance = Math.sqrt(
-                    Math.pow(pos.x - lastPoint.x, 2) + 
-                    Math.pow(pos.y - lastPoint.y, 2)
-                );
-                
-                // 距離が大きい場合は中間点を補間
-                if (distance > 5) {
-                    const steps = Math.ceil(distance / 5);
-                    for (let i = 1; i <= steps; i++) {
-                        const t = i / steps;
-                        const interpolated = {
-                            x: lastPoint.x + (pos.x - lastPoint.x) * t,
-                            y: lastPoint.y + (pos.y - lastPoint.y) * t,
-                            pressure: lastPoint.pressure + (pos.pressure - lastPoint.pressure) * t
-                        };
-                        this.points.push(interpolated);
-                        if (this.points.length >= 2) {
-                            this.drawSmooth();
-                        }
-                    }
-                } else {
-                    this.points.push(pos);
-                    this.drawSmooth();
-                }
-            } else {
-                this.points.push(pos);
-            }
+            this.points.push(pos);
+            this.drawSmooth();
         } else if (this.tool === 'line' && this.lineStart) {
             this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
             this.tempCtx.strokeStyle = '#000000';
@@ -609,7 +559,7 @@ class StoryboardEditor {
         const layers = this.getCurrentLayers();
         const layer = layers[this.getCurrentLayerIndex()];
         
-        if (confirm('現在のレイヤーをクリアしますか？この操作は取り消せません。')) {
+        if (confirm('現在のレイヤーをクリアしますか？')) {
             layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
             this.saveState();
             this.redrawCanvas();
