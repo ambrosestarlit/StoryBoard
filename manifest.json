@@ -1,7 +1,7 @@
 {
   "name": "Storyboard Editor",
   "short_name": "Storyboard",
-  "description": "絵コンテ制作アプリ - StoryBoard -",
+  "description": "絵コンテ制作アプリ",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a1a1a",
