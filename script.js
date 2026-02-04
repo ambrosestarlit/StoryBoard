@@ -16,7 +16,6 @@ class StoryboardEditor {
         this.isDrawing = false;
         this.points = [];
         this.lineStart = null;
-        this.lineEnd = null;
         
         this.tempCanvas = document.createElement('canvas');
         this.tempCanvas.width = this.canvasWidth;
@@ -26,11 +25,6 @@ class StoryboardEditor {
         this.zoom = 1.0;
         this.minZoom = 0.1;
         this.maxZoom = 5.0;
-        this.panX = 0;
-        this.panY = 0;
-        this.isPanning = false;
-        this.lastPanX = 0;
-        this.lastPanY = 0;
         
         this.init();
     }
@@ -233,9 +227,8 @@ class StoryboardEditor {
         this.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
         this.canvas.addEventListener('pointerleave', (e) => this.handlePointerUp(e));
         
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
-        
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        canvasWrapper.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
         
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
@@ -384,32 +377,17 @@ class StoryboardEditor {
     
     getPointerPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
-        
-        // クライアント座標からキャンバス座標への変換
-        const clientX = e.clientX - rect.left;
-        const clientY = e.clientY - rect.top;
-        
-        // ズームとパンを考慮した実際のキャンバス座標
-        const canvasX = (clientX - this.panX) / this.zoom;
-        const canvasY = (clientY - this.panY) / this.zoom;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
         
         return {
-            x: canvasX,
-            y: canvasY,
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY,
             pressure: e.pressure || 0.5
         };
     }
     
     handlePointerDown(e) {
-        // スペースキー + クリックでパン
-        if (e.shiftKey || e.button === 1) {
-            this.isPanning = true;
-            this.lastPanX = e.clientX;
-            this.lastPanY = e.clientY;
-            this.canvas.style.cursor = 'grab';
-            return;
-        }
-        
         const pos = this.getPointerPosition(e);
         this.isDrawing = true;
         
@@ -417,23 +395,11 @@ class StoryboardEditor {
             this.points = [pos];
         } else if (this.tool === 'line') {
             this.lineStart = pos;
-            this.lineEnd = null;
+            this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
         }
     }
     
     handlePointerMove(e) {
-        // パン中の処理
-        if (this.isPanning) {
-            const deltaX = e.clientX - this.lastPanX;
-            const deltaY = e.clientY - this.lastPanY;
-            this.panX += deltaX;
-            this.panY += deltaY;
-            this.lastPanX = e.clientX;
-            this.lastPanY = e.clientY;
-            this.redrawCanvas();
-            return;
-        }
-        
         if (!this.isDrawing) return;
         
         const pos = this.getPointerPosition(e);
@@ -442,20 +408,20 @@ class StoryboardEditor {
             this.points.push(pos);
             this.drawSmooth();
         } else if (this.tool === 'line' && this.lineStart) {
-            // 直線プレビューはredrawCanvasで描画
-            this.lineEnd = pos;
+            this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
+            this.tempCtx.strokeStyle = '#000000';
+            this.tempCtx.lineWidth = this.brushSize;
+            this.tempCtx.lineCap = 'round';
+            this.tempCtx.beginPath();
+            this.tempCtx.moveTo(this.lineStart.x, this.lineStart.y);
+            this.tempCtx.lineTo(pos.x, pos.y);
+            this.tempCtx.stroke();
+            
             this.redrawCanvas();
         }
     }
     
     handlePointerUp(e) {
-        // パンモード終了
-        if (this.isPanning) {
-            this.isPanning = false;
-            this.updateCursor();
-            return;
-        }
-        
         if (!this.isDrawing) return;
         
         if (this.tool === 'line' && this.lineStart) {
@@ -470,12 +436,13 @@ class StoryboardEditor {
             layer.ctx.moveTo(this.lineStart.x, this.lineStart.y);
             layer.ctx.lineTo(pos.x, pos.y);
             layer.ctx.stroke();
+            
+            this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
         }
         
         this.isDrawing = false;
         this.points = [];
         this.lineStart = null;
-        this.lineEnd = null;
         this.saveState();
         this.updateUndoRedoButtons();
         this.redrawCanvas();
@@ -585,12 +552,7 @@ class StoryboardEditor {
     }
     
     redrawCanvas() {
-        this.ctx.save();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // ズームとパンを適用
-        this.ctx.translate(this.panX, this.panY);
-        this.ctx.scale(this.zoom, this.zoom);
         
         const layers = this.getCurrentLayers();
         layers.forEach((layer) => {
@@ -599,79 +561,48 @@ class StoryboardEditor {
             }
         });
         
-        // 直線ツールのプレビュー描画
-        if (this.tool === 'line' && this.isDrawing && this.lineStart && this.lineEnd) {
-            this.ctx.strokeStyle = '#000000';
-            this.ctx.lineWidth = this.brushSize;
-            this.ctx.lineCap = 'round';
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.lineStart.x, this.lineStart.y);
-            this.ctx.lineTo(this.lineEnd.x, this.lineEnd.y);
-            this.ctx.stroke();
+        if (this.tool === 'line' && this.isDrawing && this.lineStart) {
+            this.ctx.drawImage(this.tempCanvas, 0, 0);
         }
-        
-        this.ctx.restore();
     }
     
     handleWheel(e) {
         e.preventDefault();
         
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
         const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
         const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * zoomFactor));
         
         if (newZoom !== this.zoom) {
-            // マウス位置を中心にズーム
-            const zoomRatio = newZoom / this.zoom;
-            this.panX = mouseX - (mouseX - this.panX) * zoomRatio;
-            this.panY = mouseY - (mouseY - this.panY) * zoomRatio;
             this.zoom = newZoom;
-            
-            this.updateZoomDisplay();
-            this.redrawCanvas();
+            this.applyZoom();
         }
     }
     
     zoomIn() {
         const newZoom = Math.min(this.maxZoom, this.zoom * 1.2);
         if (newZoom !== this.zoom) {
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 2;
-            const zoomRatio = newZoom / this.zoom;
-            this.panX = centerX - (centerX - this.panX) * zoomRatio;
-            this.panY = centerY - (centerY - this.panY) * zoomRatio;
             this.zoom = newZoom;
-            this.updateZoomDisplay();
-            this.redrawCanvas();
+            this.applyZoom();
         }
     }
     
     zoomOut() {
         const newZoom = Math.max(this.minZoom, this.zoom / 1.2);
         if (newZoom !== this.zoom) {
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 2;
-            const zoomRatio = newZoom / this.zoom;
-            this.panX = centerX - (centerX - this.panX) * zoomRatio;
-            this.panY = centerY - (centerY - this.panY) * zoomRatio;
             this.zoom = newZoom;
-            this.updateZoomDisplay();
-            this.redrawCanvas();
+            this.applyZoom();
         }
     }
     
     zoomReset() {
         this.zoom = 1.0;
-        this.panX = 0;
-        this.panY = 0;
-        this.updateZoomDisplay();
-        this.redrawCanvas();
+        this.applyZoom();
     }
     
-    updateZoomDisplay() {
+    applyZoom() {
+        this.canvas.style.transform = `scale(${this.zoom})`;
+        this.canvas.style.transformOrigin = 'center center';
+        
         const zoomPercent = Math.round(this.zoom * 100);
         document.getElementById('zoomLevel').textContent = `${zoomPercent}%`;
     }
