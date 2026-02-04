@@ -218,10 +218,18 @@ class StoryboardEditor {
         this.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
         this.canvas.addEventListener('pointerleave', (e) => this.handlePointerUp(e));
         
-        // タッチイベントも追加（タブレット対応）
-        this.canvas.addEventListener('touchstart', (e) => this.handlePointerDown(e), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => this.handlePointerMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.handlePointerUp(e), { passive: false });
+        // タブレット対応：タッチイベント追加
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.handlePointerDown(e);
+        }, { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            this.handlePointerMove(e);
+        }, { passive: false });
+        this.canvas.addEventListener('touchend', (e) => {
+            this.handlePointerUp(e);
+        }, { passive: false });
         
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
@@ -370,13 +378,22 @@ class StoryboardEditor {
     
     getPointerPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
-        
-        // タッチ座標を取得（touches APIも考慮）
-        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-        
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
+        
+        // タッチイベントの場合はtouchesから取得
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            // touchendの場合
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
         
         return {
             x: (clientX - rect.left) * scaleX,
@@ -386,8 +403,6 @@ class StoryboardEditor {
     }
     
     handlePointerDown(e) {
-        e.preventDefault(); // タッチスクロール防止
-        
         const pos = this.getPointerPosition(e);
         this.isDrawing = true;
         
@@ -401,8 +416,6 @@ class StoryboardEditor {
     
     handlePointerMove(e) {
         if (!this.isDrawing) return;
-        
-        e.preventDefault(); // タッチスクロール防止
         
         const pos = this.getPointerPosition(e);
         
