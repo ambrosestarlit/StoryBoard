@@ -13,6 +13,7 @@ class StoryboardEditor {
         
         this.tool = 'pen';
         this.brushSize = 3;
+        this.smoothing = 50; // 補正強度 0-100
         this.isDrawing = false;
         this.points = [];
         this.lineStart = null;
@@ -161,6 +162,13 @@ class StoryboardEditor {
             brushSizeValue.textContent = this.brushSize;
         });
         
+        const smoothingInput = document.getElementById('smoothing');
+        const smoothingValue = document.getElementById('smoothingValue');
+        smoothingInput.addEventListener('input', (e) => {
+            this.smoothing = parseInt(e.target.value);
+            smoothingValue.textContent = this.smoothing;
+        });
+        
         const projectNameInput = document.getElementById('projectName');
         projectNameInput.addEventListener('input', (e) => {
             this.projectName = e.target.value || 'storyboard';
@@ -218,19 +226,6 @@ class StoryboardEditor {
         this.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
         this.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
         this.canvas.addEventListener('pointerleave', (e) => this.handlePointerUp(e));
-        
-        // タブレット対応：タッチイベント追加
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.handlePointerDown(e);
-        }, { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            this.handlePointerMove(e);
-        }, { passive: false });
-        this.canvas.addEventListener('touchend', (e) => {
-            this.handlePointerUp(e);
-        }, { passive: false });
         
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
