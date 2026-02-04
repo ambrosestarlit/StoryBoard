@@ -178,6 +178,7 @@ class StoryboardEditor {
         
         document.getElementById('undoBtn').addEventListener('click', () => this.undo());
         document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+        document.getElementById('clearLayerBtn').addEventListener('click', () => this.clearCurrentLayer());
         
         document.getElementById('addStoryboardBtn').addEventListener('click', () => this.addStoryboard());
         
@@ -420,8 +421,36 @@ class StoryboardEditor {
         const pos = this.getPointerPosition(e);
         
         if (this.tool === 'pen' || this.tool === 'eraser') {
-            this.points.push(pos);
-            this.drawSmooth();
+            // タブレット用：前の点との間を補間して滑らかに
+            if (this.points.length > 0) {
+                const lastPoint = this.points[this.points.length - 1];
+                const distance = Math.sqrt(
+                    Math.pow(pos.x - lastPoint.x, 2) + 
+                    Math.pow(pos.y - lastPoint.y, 2)
+                );
+                
+                // 距離が大きい場合は中間点を補間
+                if (distance > 5) {
+                    const steps = Math.ceil(distance / 5);
+                    for (let i = 1; i <= steps; i++) {
+                        const t = i / steps;
+                        const interpolated = {
+                            x: lastPoint.x + (pos.x - lastPoint.x) * t,
+                            y: lastPoint.y + (pos.y - lastPoint.y) * t,
+                            pressure: lastPoint.pressure + (pos.pressure - lastPoint.pressure) * t
+                        };
+                        this.points.push(interpolated);
+                        if (this.points.length >= 2) {
+                            this.drawSmooth();
+                        }
+                    }
+                } else {
+                    this.points.push(pos);
+                    this.drawSmooth();
+                }
+            } else {
+                this.points.push(pos);
+            }
         } else if (this.tool === 'line' && this.lineStart) {
             this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
             this.tempCtx.strokeStyle = '#000000';
@@ -578,6 +607,18 @@ class StoryboardEditor {
         
         if (this.tool === 'line' && this.isDrawing && this.lineStart) {
             this.ctx.drawImage(this.tempCanvas, 0, 0);
+        }
+    }
+    
+    clearCurrentLayer() {
+        const layers = this.getCurrentLayers();
+        const layer = layers[this.getCurrentLayerIndex()];
+        
+        if (confirm('現在のレイヤーをクリアしますか？この操作は取り消せません。')) {
+            layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+            this.saveState();
+            this.redrawCanvas();
+            this.renderStoryboards();
         }
     }
     
