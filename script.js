@@ -22,10 +22,6 @@ class StoryboardEditor {
         this.tempCanvas.height = this.canvasHeight;
         this.tempCtx = this.tempCanvas.getContext('2d');
         
-        this.zoom = 1.0;
-        this.minZoom = 0.1;
-        this.maxZoom = 5.0;
-        
         this.init();
     }
     
@@ -182,11 +178,6 @@ class StoryboardEditor {
         
         document.getElementById('undoBtn').addEventListener('click', () => this.undo());
         document.getElementById('redoBtn').addEventListener('click', () => this.redo());
-        document.getElementById('clearLayerBtn').addEventListener('click', () => this.clearCurrentLayer());
-        
-        document.getElementById('zoomInBtn').addEventListener('click', () => this.zoomIn());
-        document.getElementById('zoomOutBtn').addEventListener('click', () => this.zoomOut());
-        document.getElementById('zoomResetBtn').addEventListener('click', () => this.zoomReset());
         
         document.getElementById('addStoryboardBtn').addEventListener('click', () => this.addStoryboard());
         
@@ -227,8 +218,10 @@ class StoryboardEditor {
         this.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
         this.canvas.addEventListener('pointerleave', (e) => this.handlePointerUp(e));
         
-        const canvasWrapper = document.getElementById('canvasWrapper');
-        canvasWrapper.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        // タッチイベントも追加（タブレット対応）
+        this.canvas.addEventListener('touchstart', (e) => this.handlePointerDown(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handlePointerMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handlePointerUp(e), { passive: false });
         
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
@@ -377,17 +370,24 @@ class StoryboardEditor {
     
     getPointerPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
+        
+        // タッチ座標を取得（touches APIも考慮）
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
         
         return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY,
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY,
             pressure: e.pressure || 0.5
         };
     }
     
     handlePointerDown(e) {
+        e.preventDefault(); // タッチスクロール防止
+        
         const pos = this.getPointerPosition(e);
         this.isDrawing = true;
         
@@ -401,6 +401,8 @@ class StoryboardEditor {
     
     handlePointerMove(e) {
         if (!this.isDrawing) return;
+        
+        e.preventDefault(); // タッチスクロール防止
         
         const pos = this.getPointerPosition(e);
         
@@ -563,59 +565,6 @@ class StoryboardEditor {
         
         if (this.tool === 'line' && this.isDrawing && this.lineStart) {
             this.ctx.drawImage(this.tempCanvas, 0, 0);
-        }
-    }
-    
-    handleWheel(e) {
-        e.preventDefault();
-        
-        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * zoomFactor));
-        
-        if (newZoom !== this.zoom) {
-            this.zoom = newZoom;
-            this.applyZoom();
-        }
-    }
-    
-    zoomIn() {
-        const newZoom = Math.min(this.maxZoom, this.zoom * 1.2);
-        if (newZoom !== this.zoom) {
-            this.zoom = newZoom;
-            this.applyZoom();
-        }
-    }
-    
-    zoomOut() {
-        const newZoom = Math.max(this.minZoom, this.zoom / 1.2);
-        if (newZoom !== this.zoom) {
-            this.zoom = newZoom;
-            this.applyZoom();
-        }
-    }
-    
-    zoomReset() {
-        this.zoom = 1.0;
-        this.applyZoom();
-    }
-    
-    applyZoom() {
-        this.canvas.style.transform = `scale(${this.zoom})`;
-        this.canvas.style.transformOrigin = 'center center';
-        
-        const zoomPercent = Math.round(this.zoom * 100);
-        document.getElementById('zoomLevel').textContent = `${zoomPercent}%`;
-    }
-    
-    clearCurrentLayer() {
-        const layers = this.getCurrentLayers();
-        const layer = layers[this.getCurrentLayerIndex()];
-        
-        if (confirm('現在のレイヤーをクリアしますか？この操作は取り消せません。')) {
-            layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-            this.saveState();
-            this.redrawCanvas();
-            this.renderStoryboards();
         }
     }
     
